@@ -1,0 +1,15 @@
+# RStudio files
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+
+# Raw datasets
+data/raw/*
+
+# Keep the raw data folder structure
+!data/raw/.gitkeep
+
+# Operating system files
+.DS_Store
+Thumbs.db
