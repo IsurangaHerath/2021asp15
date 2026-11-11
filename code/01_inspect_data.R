@@ -1,18 +1,13 @@
+
 # Stage 1: Dataset Inspection
 
-# 1. Check working directory
 getwd()
 
-# 2. Get downloaded file names
 files <- list.files("data/raw")
-
-# 3. Display file names
 print(files)
 
-# 4. Check file sizes
 file.info(paste0("data/raw/", files))$size
 
-# 5. Inspect the first five lines of raw count data
 connection <- gzfile(
   "data/raw/GSE97861_Raw_counts_cohort1.tsv.gz",
   "rt"
@@ -21,7 +16,6 @@ first_lines <- readLines(connection, n = 5)
 close(connection)
 print(first_lines)
 
-# 6. Import raw gene expression data
 raw_data <- read.table(
   gzfile("data/raw/GSE97861_Raw_counts_cohort1.tsv.gz"),
   header = TRUE,
@@ -30,36 +24,98 @@ raw_data <- read.table(
   stringsAsFactors = FALSE
 )
 
-# 7. Display the first six rows
 head(raw_data)
-
-# 8. Check dataset dimensions
 dim(raw_data)
-
-# 9. Check column names
 colnames(raw_data)
 
 
+# Stage 2: Basic Data Quality Checking
 
-
-# Stage 1.5: Basic Data Quality Checking
-
-# Check missing values
 sum(is.na(raw_data))
-
-# Check duplicate gene names
 sum(duplicated(raw_data$GENES))
 
-# Check whether expression columns are numeric
 sapply(raw_data[-1], is.numeric)
 
-# Check for negative expression counts
 any(as.matrix(raw_data[-1]) < 0)
 
-# Check minimum and maximum expression counts
 min(as.matrix(raw_data[-1]))
 max(as.matrix(raw_data[-1]))
 
-# Check total expression counts in each sample
 colSums(raw_data[-1])
 
+
+# Stage 3: GEO Sample Metadata Inspection
+
+connection <- gzfile(
+  "data/raw/GSE97861_series_matrix.txt.gz",
+  "rt"
+)
+
+metadata_lines <- readLines(connection, n = 30)
+close(connection)
+
+cat(metadata_lines, sep = "\n")
+
+
+# Extract individual sample information
+
+connection <- gzfile(
+  "data/raw/GSE97861_series_matrix.txt.gz",
+  "rt"
+)
+
+all_metadata <- readLines(connection)
+close(connection)
+
+sample_metadata <- grep(
+  "^!Sample_",
+  all_metadata,
+  value = TRUE
+)
+
+cat(sample_metadata, sep = "\n")
+
+
+# Create sample information table
+
+get_sample_values <- function(field) {
+  line <- grep(
+    paste0("^", field, "\t"),
+    all_metadata,
+    value = TRUE
+  )
+  
+  values <- strsplit(line, "\t")[[1]][-1]
+  
+  gsub('^"|"$', "", values)
+}
+
+sample_table <- data.frame(
+  GEO_ID = get_sample_values("!Sample_geo_accession"),
+  Sample = get_sample_values("!Sample_title"),
+  stringsAsFactors = FALSE
+)
+
+print(sample_table)
+
+# Add group and cell type information
+
+sample_table$Group <- ifelse(
+  grepl("Negative", sample_table$Sample),
+  "Negative",
+  "Secondary"
+)
+
+sample_table$Cell_Type <- sub(
+  ".*_(NAIVE|Naive|TCM|TEMRA|TEM)_.*",
+  "\\1",
+  sample_table$Sample
+)
+
+sample_table$Donor <- sub(
+  "_.*",
+  "",
+  sample_table$Sample
+)
+
+print(sample_table)
