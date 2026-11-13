@@ -139,3 +139,126 @@ write.csv(
   "results/sample_information.csv",
   row.names = FALSE
 )
+
+# Check sample names in expression data
+
+print(colnames(raw_data)[-1])
+
+# Check sample names in metadata
+
+print(sample_table$Sample)
+
+# Create common sample identifiers
+
+expression_samples <- sub(
+  "_RNASeq$",
+  "",
+  colnames(raw_data)[-1]
+)
+
+metadata_samples <- sub(
+  " _.*",
+  "",
+  sample_table$Sample
+)
+
+# Check whether sample names match
+
+all(expression_samples == metadata_samples)
+
+# Explore gene expression data
+
+# Summary of gene expression values
+summary(as.matrix(raw_data[-1]))
+
+# Calculate average expression for each sample
+sample_means <- colMeans(raw_data[-1])
+
+print(sample_means)
+
+# Visualize sample expression distributions
+boxplot(
+  raw_data[-1],
+  las = 2,
+  main = "Gene Expression Distribution Across Samples",
+  ylab = "Raw Read Counts",
+  outline = FALSE
+)
+
+# Visualize sequencing depth
+
+sample_totals <- colSums(raw_data[-1])
+
+barplot(
+  sample_totals,
+  las = 2,
+  main = "Sequencing Depth Across Samples",
+  ylab = "Total Read Counts",
+  col = "lightblue"
+)
+
+# Check low-expression genes
+
+gene_counts <- raw_data[-1]
+
+low_expression_genes <- rowSums(gene_counts >= 10) < 3
+
+sum(low_expression_genes)
+
+sum(!low_expression_genes)
+
+# Import TPM data
+
+tpm_data <- read.table(
+  gzfile("data/raw/GSE97861_TPM_cohort1.tsv.gz"),
+  header = TRUE,
+  sep = "\t",
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+# Inspect TPM data
+
+dim(tpm_data)
+head(tpm_data)
+
+# Check TPM data quality
+
+sum(is.na(tpm_data))
+sum(duplicated(tpm_data$GENES))
+
+# Check numeric expression values
+
+sapply(tpm_data[-1], is.numeric)
+
+# Check for negative values
+
+any(as.matrix(tpm_data[-1]) < 0)
+
+# Compare genes between datasets
+
+identical(raw_data$GENES, tpm_data$GENES)
+
+# Compare sample names between datasets
+
+identical(colnames(raw_data), colnames(tpm_data))
+
+# Stage 4: TPM Data Quality Checking
+
+# Check missing values
+sum(is.na(tpm_data))
+
+# Check duplicate genes
+sum(duplicated(tpm_data$GENES))
+
+# Check numeric expression columns
+sapply(tpm_data[-1], is.numeric)
+
+# Check negative values
+any(as.matrix(tpm_data[-1]) < 0)
+
+# Compare genes between datasets
+identical(raw_data$GENES, tpm_data$GENES)
+
+# Compare sample names
+identical(colnames(raw_data), colnames(tpm_data))
