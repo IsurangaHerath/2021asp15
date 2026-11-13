@@ -96,9 +96,8 @@ sample_table <- data.frame(
   stringsAsFactors = FALSE
 )
 
-print(sample_table)
 
-# Add group and cell type information
+# Add group information
 
 sample_table$Group <- ifelse(
   grepl("Negative", sample_table$Sample),
@@ -106,11 +105,17 @@ sample_table$Group <- ifelse(
   "Secondary"
 )
 
+
+# Add cell type information
+
 sample_table$Cell_Type <- sub(
-  ".*_(NAIVE|Naive|TCM|TEMRA|TEM)_.*",
-  "\\1",
-  sample_table$Sample
+  " .*",
+  "",
+  sub("^[^_]*_", "", sample_table$Sample)
 )
+
+
+# Add donor information
 
 sample_table$Donor <- sub(
   "_.*",
@@ -118,4 +123,19 @@ sample_table$Donor <- sub(
   sample_table$Sample
 )
 
+
+# Display sample information
+
 print(sample_table)
+
+
+# Check sample counts
+
+table(sample_table$Group)
+table(sample_table$Cell_Type)
+
+write.csv(
+  sample_table,
+  "results/sample_information.csv",
+  row.names = FALSE
+)
