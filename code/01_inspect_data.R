@@ -494,3 +494,360 @@ dim(dds)
 
 # Check the group distribution
 table(dds$Group)
+
+# Stage 17: Filter Low-Expression Genes
+
+# Count genes before filtering
+nrow(dds)
+
+# Keep genes with at least 10 counts in at least 3 samples
+keep_genes <- rowSums(counts(dds) >= 10) >= 3
+
+# Apply filtering
+dds <- dds[keep_genes, ]
+
+# Count genes after filtering
+nrow(dds)
+
+# Calculate removed genes
+23368 - nrow(dds)
+
+# Stage 18: Differential Gene Expression Analysis
+
+# Perform differential expression analysis
+dds <- DESeq(dds)
+
+# Extract results: Secondary compared with Negative
+res <- results(
+  dds,
+  contrast = c("Group", "Secondary", "Negative")
+)
+
+# Display summary of results
+summary(res)
+
+# Sort results by adjusted p-value
+res_ordered <- res[order(res$padj), ]
+
+# Display the first 10 results
+head(res_ordered, 10)
+
+# Stage 19: Identify Significant Genes
+
+# Select genes with adjusted p-value below 0.05
+significant_genes <- res[
+  !is.na(res$padj) & res$padj < 0.05,
+]
+
+# Sort significant genes by adjusted p-value
+significant_genes <- significant_genes[
+  order(significant_genes$padj),
+]
+
+# Count significant genes
+nrow(significant_genes)
+
+# Display significant genes
+print(significant_genes)
+
+# Stage 20: Save Differential Expression Results
+
+# Convert DESeq2 results into data frames
+all_results <- as.data.frame(res_ordered)
+
+significant_results <- as.data.frame(significant_genes)
+
+# Save all gene results
+write.csv(
+  all_results,
+  "results/differential_expression_all_genes.csv",
+  row.names = TRUE
+)
+
+# Save significant gene results
+write.csv(
+  significant_results,
+  "results/significant_genes.csv",
+  row.names = TRUE
+)
+
+# Confirm saved files
+file.exists("results/differential_expression_all_genes.csv")
+file.exists("results/significant_genes.csv")
+
+# Stage 21: Create Volcano Plot
+
+# Convert results into a data frame
+plot_data <- as.data.frame(res)
+
+# Remove genes with missing adjusted p-values
+plot_data <- plot_data[!is.na(plot_data$padj), ]
+
+# Identify significant genes
+plot_data$Significance <- ifelse(
+  plot_data$padj < 0.05,
+  "Significant",
+  "Not Significant"
+)
+
+# Create volcano plot
+plot(
+  plot_data$log2FoldChange,
+  -log10(plot_data$padj),
+  col = ifelse(
+    plot_data$Significance == "Significant",
+    "red",
+    "grey"
+  ),
+  pch = 20,
+  main = "Volcano Plot of Differential Gene Expression",
+  xlab = "Log2 Fold Change",
+  ylab = "-Log10 Adjusted P-value"
+)
+
+# Add significance threshold
+abline(
+  h = -log10(0.05),
+  col = "blue",
+  lty = 2
+)
+
+# Add vertical reference line
+abline(
+  v = 0,
+  col = "black",
+  lty = 2
+)
+
+# Add legend
+legend(
+  "topright",
+  legend = c("Significant", "Not Significant"),
+  col = c("red", "grey"),
+  pch = 20
+)
+
+# Stage 22: Save Volcano Plot
+
+png(
+  "results/volcano_plot.png",
+  width = 1200,
+  height = 900,
+  res = 120
+)
+
+# Create volcano plot
+plot(
+  plot_data$log2FoldChange,
+  -log10(plot_data$padj),
+  col = ifelse(
+    plot_data$Significance == "Significant",
+    "red",
+    "grey"
+  ),
+  pch = 20,
+  main = "Volcano Plot of Differential Gene Expression",
+  xlab = "Log2 Fold Change",
+  ylab = "-Log10 Adjusted P-value"
+)
+
+# Add threshold lines
+abline(h = -log10(0.05), col = "blue", lty = 2)
+abline(v = 0, col = "black", lty = 2)
+
+# Add legend
+legend(
+  "topright",
+  legend = c("Significant", "Not Significant"),
+  col = c("red", "grey"),
+  pch = 20
+)
+
+# Close the image device
+dev.off()
+
+# Check saved file
+file.exists("results/volcano_plot.png")
+
+# Stage 23: Visualize Top 10 Significant Genes
+
+# Select the top 10 significant genes
+top_genes <- head(significant_genes, 10)
+
+# Create bar plot
+barplot(
+  top_genes$log2FoldChange,
+  names.arg = rownames(top_genes),
+  las = 2,
+  main = "Top 10 Differentially Expressed Genes",
+  xlab = "Genes",
+  ylab = "Log2 Fold Change",
+  col = "lightblue"
+)
+
+# Add reference line at zero
+abline(h = 0, col = "red", lty = 2)
+
+# Stage 24: Save Top 10 Gene Plot
+
+png(
+  "results/top_10_significant_genes.png",
+  width = 1200,
+  height = 900,
+  res = 120
+)
+
+# Recreate the bar plot
+barplot(
+  top_genes$log2FoldChange,
+  names.arg = rownames(top_genes),
+  las = 2,
+  main = "Top 10 Differentially Expressed Genes",
+  xlab = "Genes",
+  ylab = "Log2 Fold Change",
+  col = "lightblue"
+)
+
+abline(h = 0, col = "red", lty = 2)
+
+# Close image device
+dev.off()
+
+# Verify saved image
+file.exists("results/top_10_significant_genes.png")
+
+# Stage 25: Prepare Significant Gene Summary
+
+# Create a summary table
+gene_summary <- data.frame(
+  Gene = rownames(significant_genes),
+  Log2FoldChange = significant_genes$log2FoldChange,
+  Adjusted_P_Value = significant_genes$padj
+)
+
+# Identify expression direction
+gene_summary$Expression <- ifelse(
+  gene_summary$Log2FoldChange > 0,
+  "Higher in Secondary",
+  "Lower in Secondary"
+)
+
+# Display all significant genes
+print(gene_summary)
+
+# Count upregulated and downregulated genes
+table(gene_summary$Expression)
+
+# Stage 26: Save Significant Gene Summary
+
+write.csv(
+  gene_summary,
+  "results/significant_gene_summary.csv",
+  row.names = FALSE
+)
+
+# Verify saved file
+file.exists("results/significant_gene_summary.csv")
+
+# Stage 27: Examine CD160 Expression
+
+# Get normalized counts
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# Extract CD160 expression
+cd160_counts <- normalized_counts["CD160", ]
+
+# Combine expression with sample information
+cd160_data <- data.frame(
+  Sample = names(cd160_counts),
+  Expression = as.numeric(cd160_counts),
+  Group = col_data$Group
+)
+
+# Display CD160 expression
+print(cd160_data)
+
+# Stage 28: Visualise CD160 Expression
+
+# Create log2-transformed expression values
+cd160_data$Log2_Expression <- log2(cd160_data$Expression + 1)
+
+# Create a boxplot
+boxplot(
+  Log2_Expression ~ Group,
+  data = cd160_data,
+  main = "CD160 Expression in TEMRA Cells",
+  xlab = "Group",
+  ylab = "Log2 Normalized Expression",
+  col = c("lightblue", "lightgreen")
+)
+
+# Display individual sample values
+stripchart(
+  Log2_Expression ~ Group,
+  data = cd160_data,
+  vertical = TRUE,
+  method = "jitter",
+  add = TRUE,
+  pch = 19
+)
+
+# Stage 28: Save CD160 Expression Data
+
+write.csv(
+  cd160_data,
+  "results/CD160_expression.csv",
+  row.names = FALSE
+)
+
+# Check whether the file was saved
+file.exists("results/CD160_expression.csv")
+
+# Stage 29: Final Analysis Summary
+
+cat("===== Differential Expression Analysis Summary =====\n")
+
+cat("Total samples:", ncol(dds), "\n")
+cat("Negative samples:", sum(col_data$Group == "Negative"), "\n")
+cat("Secondary samples:", sum(col_data$Group == "Secondary"), "\n")
+
+cat("Genes analysed:", nrow(dds), "\n")
+cat("Significant genes (adjusted p-value < 0.05):",
+    nrow(significant_genes), "\n")
+
+cat("Higher in Secondary:",
+    sum(significant_genes$log2FoldChange > 0), "\n")
+
+cat("Lower in Secondary:",
+    sum(significant_genes$log2FoldChange < 0), "\n")
+
+
+# Stage 30: Principal Component Analysis (PCA)
+
+# Load required package
+library(DESeq2)
+library(ggplot2)
+
+# Transform count data for visualisation
+vsd <- vst(dds, blind = FALSE)
+
+# Create PCA plot
+pca_plot <- plotPCA(
+  vsd,
+  intgroup = "Group"
+)
+
+# Display the PCA plot
+print(pca_plot)
+
+# Save the PCA plot
+ggsave(
+  filename = "results/PCA_plot.png",
+  plot = pca_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+# Check whether the plot was saved
+file.exists("results/PCA_plot.png")
