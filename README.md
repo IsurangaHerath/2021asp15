@@ -1,218 +1,386 @@
-# Transcriptomic Differences in Circulating TEMRA CD4+ T Cells After Secondary Dengue Virus Exposure
+# Transcriptomic Analysis of CD4+ T-Cell Immune Responses Associated with Secondary Dengue Infection in a Sri Lankan Population
 
-**Student registration number:** 2021/ASP/15
-**Dataset:** NCBI GEO accession [GSE97861](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE97861)
-**Language:** R (DESeq2, ggplot2, base R)
+**Student registration number:** 2021/ASP/15\
+**Dataset:** [NCBI GEO:
+GSE97861](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE97861)\
+**Programming language:** R\
+**Main packages:** DESeq2, ggplot2
 
 ## Abstract
 
-Dengue virus infects roughly 400 million people each year, and the immune correlates of protection remain incompletely understood. We analysed public bulk RNA-seq data from circulating CD4+ T-cell subsets of 9 Sri Lankan donors with secondary dengue infection and 3 dengue-negative healthy controls (GEO GSE97861). We restricted the analysis to terminally differentiated effector memory (TEMRA) CD4+ T cells (9 secondary vs 3 negative), filtered low-expression genes, and tested for differential expression with DESeq2 using a negative-binomial model. Of 12,777 genes tested, 16 had an adjusted p-value below 0.05: 14 were higher and 2 lower in secondary-exposure donors. The strongest signal was WFS1 (log2 fold change 20.97, adjusted p = 1.5 × 10⁻⁷), followed by FAH and CD160. The sample size is small and the top fold changes are large, so these results are hypothesis-generating and require validation in an independent cohort.
+This project explores gene expression differences in CD4+ T cells from
+Sri Lankan donors with previous dengue exposure and dengue-negative
+healthy controls. The analysis uses public RNA-sequencing data from the
+GEO database (GSE97861). The main comparison focuses on TEMRA CD4+ T
+cells, because this cell type is available for all 12 donors: 9 in the
+secondary-exposure group and 3 in the negative-control group. After
+checking and preparing the data, differential expression was analysed
+using DESeq2. A total of 12,777 genes were tested, and 16 genes had an
+adjusted p-value below 0.05. Fourteen showed higher estimated expression
+and two showed lower estimated expression in the secondary group. The
+small number of control samples means that the findings should be
+treated as exploratory.
 
 ## 1. Introduction
 
-Dengue is a mosquito-borne flavivirus infection and a major public health problem in tropical and subtropical regions, including Sri Lanka, where it is endemic. Prior infection with one dengue serotype is a known risk factor for more severe disease on later infection with another serotype, which makes the memory T-cell response to dengue of particular interest.
+Dengue is a mosquito-borne viral disease that affects many countries,
+including Sri Lanka. People can be infected with different dengue virus
+types. A previous dengue infection can influence the immune response to
+a later infection.
 
-CD4+ T cells can be divided into naive, central memory (TCM), effector memory (TEM) and terminally differentiated effector memory (TEMRA) subsets. These subsets differ in their proliferative capacity, homing and effector function. Characterising the transcriptional profile of each subset in people with previous dengue exposure may help identify immune signatures associated with protection or pathology.
+CD4+ T cells are part of the body's immune system. They help coordinate
+immune responses and can develop into different memory cell types. These
+include central memory (TCM), effector memory (TEM) and terminally
+differentiated effector memory (TEMRA) cells.
 
-**Aim:** to identify genes whose expression differs in circulating TEMRA CD4+ T cells between donors with secondary dengue infection and dengue-negative healthy controls.
+This project looks at gene expression in CD4+ T cells from people with
+previous dengue exposure and people in the dengue-negative control
+group. The main analysis focuses on TEMRA cells.
 
-**Hypothesis:** TEMRA CD4+ T cells from previously exposed donors show a distinct transcriptional profile compared with dengue-negative controls.
+**Aim:** To identify genes with different expression levels in TEMRA
+CD4+ T cells between donors in the secondary dengue-exposure group and
+dengue-negative controls.
+
+**Objectives:**
+
+-   Download and inspect the public gene-expression dataset.
+-   Check and prepare the expression data and sample information.
+-   Select the TEMRA samples for the main comparison.
+-   Use DESeq2 to identify genes with different expression between the
+    two groups.
+-   Create plots and tables to present the results.
 
 ## 2. Data
 
-**Source:** NCBI Gene Expression Omnibus, series GSE97861 ("Transcriptomic profile of circulating naive, TCM, TEM and TEMRA T cells in donors from Sri Lanka previously exposed to dengue virus and healthy controls from Sri Lanka [Cohort 1]"). Platform GPL16791 (Homo sapiens). Associated publication: PubMed ID 29133794.
+### 2.1 Data source
 
-**Files used (stored in `data/raw/`, not tracked by git):**
+The data were obtained from the National Center for Biotechnology
+Information (NCBI) Gene Expression Omnibus (GEO), under accession
+**GSE97861**.
 
-| File | Content | Size |
-|---|---|---|
-| `GSE97861_Raw_counts_cohort1.tsv.gz` | Gene-level raw read counts | 23,368 genes × 30 samples |
-| `GSE97861_TPM_cohort1.tsv.gz` | Gene-level TPM values | 23,368 genes × 30 samples |
-| `GSE97861_series_matrix.txt.gz` | GEO series matrix (sample metadata) | 30 samples |
+The dataset is titled *Transcriptomic profile of circulating naive, TCM,
+TEM and TEMRA T cells in donors from Sri Lanka previously exposed to
+dengue virus and healthy controls from Sri Lanka \[Cohort 1\]*.
 
-**Study design:** RNA-seq of sorted CD4+ naive, TCM, TEM and TEMRA T cells from cryopreserved PBMC of 9 donors with secondary dengue infection and 3 dengue-negative healthy controls.
+Three files from the GEO dataset were used:
 
-**Sample table after cleaning** (`results/sample_information.csv`):
+  --------------------------------------------------------------------------
+  File                                   Description
+  -------------------------------------- -----------------------------------
+  `GSE97861_Raw_counts_cohort1.tsv.gz`   Raw gene read counts
 
-| Cell subset | Secondary | Negative (control) | Total |
-|---|---|---|---|
-| Naive | 6* | 0 | 6 |
-| TCM | 6 | 0 | 6 |
-| TEM | 6 | 0 | 6 |
-| TEMRA | 9 | 3 | 12 |
-| **Total** | **27** | **3** | **30** |
+  `GSE97861_TPM_cohort1.tsv.gz`          TPM gene-expression values
 
-\* Naive samples were recorded as "NAIVE" or "Naive" in the GEO sample titles; these were standardised to uppercase during cleaning.
+  `GSE97861_series_matrix.txt.gz`        Sample information and study
+                                         details
+  --------------------------------------------------------------------------
 
-Not every donor has every subset: the 9 secondary-exposure donors contributed TEMRA samples and, for 6 of them, naive, TCM and TEM samples; the 3 negative controls contributed TEMRA samples only. The 12 TEMRA samples (9 Secondary, 3 Negative) form the input to the differential-expression analysis.
+The original dataset contains 23,368 genes and 30 samples.
 
-**Ethics and licence:** The data are publicly released by GEO and contain no direct identifiers (donors are coded GS0XXX). The data were used under the terms of the original submission; the GEO reuse policy applies. Users should cite the original study and GEO when reusing the data.
+### 2.2 Sample information
+
+The dataset includes 9 donors in the secondary dengue-exposure group and
+3 dengue-negative healthy controls. The samples include four CD4+ T-cell
+subsets.
+
+  Cell type     Secondary   Negative    Total
+  ----------- ----------- ---------- --------
+  Naive                 6          0        6
+  TCM                   6          0        6
+  TEM                   6          0        6
+  TEMRA                 9          3       12
+  **Total**        **27**      **3**   **30**
+
+Not every donor provided all four cell types. All 12 donors had a TEMRA
+sample, while the three negative controls had only TEMRA samples. For
+this reason, the main differential expression analysis uses the 12 TEMRA
+samples only.
+
+The terms *Secondary* and *Negative* refer to the groups described in
+the original study. They should not be understood as proof that donors
+were experiencing an active dengue infection when their samples were
+collected.
 
 ## 3. Methods
 
-The workflow is implemented in `code/01_inspect_data.R` and runs in numbered stages:
+The analysis was completed in RStudio using the script
+`code/01_inspect_data.R`. The work was carried out in the following
+steps.
 
-1. **Import and inspection.** Raw counts and TPM values were read with `read.table()`. Dimensions, missing values (none), duplicated gene identifiers (none), numeric type, and negative values (none) were checked. Gene identifiers and sample names were confirmed to match between the count and TPM tables.
-2. **Metadata extraction.** Sample titles and characteristics were parsed from the GEO series matrix into a table with GEO ID, sample name, group (Secondary / Negative), cell subset and donor. Cell-subset names were standardised to uppercase.
-3. **Exploratory analysis of TPM values.** Per-sample mean TPM and distributions were summarised. Boxplots of log2(TPM + 1) were drawn for all samples to check comparability across libraries.
-4. **Subset selection.** The 12 TEMRA samples were selected. Donor identifiers in the metadata were matched to the count-matrix column names (`<donor>_TEMRA_RNASeq`) and their order was verified.
-5. **Differential expression with DESeq2** (Love, Huber & Anders, 2014). A `DESeqDataSet` was created from raw counts with design `~ Group`, with Negative set as the reference level. Genes with at least 10 counts in at least 3 samples were kept (12,777 genes). Size factors, dispersions and negative-binomial GLM fits were estimated with `DESeq()`. Wald tests were used for the Secondary vs Negative contrast, and p-values were adjusted with the Benjamini–Hochberg method (DESeq2 default).
-6. **Significance.** Genes with adjusted p-value < 0.05 were called significant. Positive log2 fold change denotes higher expression in Secondary donors.
-7. **Visualisation.** Volcano plot (log2 fold change vs −log10 adjusted p), top-10 significant gene plot, CD160 expression plot in TEMRA samples, and PCA of variance-stabilised counts (`vst()`, `plotPCA()`) coloured by group.
+### 3.1 Data import and checking
 
-**Packages:** DESeq2 (differential expression, `vst`, `plotPCA`), ggplot2 (plots and saving figures), and base R (import, cleaning and summaries). Version numbers are given in the Reproducibility section.
+The raw count and TPM files were imported into R. The data were checked
+for missing values, duplicated gene names, negative values and correct
+numeric columns. The sample names in the expression files were also
+checked.
 
-**Why these methods:** DESeq2 models raw counts with a negative-binomial distribution and shrinks dispersion estimates, which is appropriate for small group sizes. Using raw counts rather than TPM avoids inflated variance for low-count genes. Low-expression filtering reduces multiple-testing burden and unreliable fold changes.
+### 3.2 Sample information preparation
+
+The GEO series matrix was used to obtain the sample details, including
+the donor, cell type and study group. The cell-type names were
+standardised so that they could be used consistently during the
+analysis.
+
+### 3.3 Initial data exploration
+
+TPM values were used for basic exploration and visualisation. Expression
+distributions were examined using summary values and a boxplot. TPM
+values were used for visualisation, not as input to the DESeq2
+differential expression analysis.
+
+### 3.4 TEMRA sample selection
+
+The 12 TEMRA samples were selected from the full dataset. The sample
+names were matched with the corresponding metadata, and the sample order
+was checked before analysis.
+
+### 3.5 Differential expression analysis
+
+DESeq2 was used to compare the Secondary and Negative groups. Raw read
+counts were used as input.
+
+Genes with fewer than 10 counts in at least 3 samples were removed
+before the analysis. After filtering, **12,777 genes** remained.
+
+The analysis used the design formula `~ Group`, with Negative as the
+reference group. The comparison was made between Secondary and Negative.
+The Benjamini-Hochberg method was used by DESeq2 to adjust p-values for
+multiple testing.
+
+Genes with an adjusted p-value below 0.05 were considered statistically
+significant for this project. A positive log2 fold change means higher
+estimated expression in the Secondary group, while a negative value
+means lower estimated expression.
+
+### 3.6 Visualisation
+
+The results were presented using:
+
+-   A TPM expression boxplot for the initial data exploration.
+-   A volcano plot to show the differential expression results.
+-   A bar plot of the top 10 significant genes.
+-   A CD160 expression plot to examine the values across individual
+    TEMRA samples.
+-   A PCA plot to explore similarities and differences between samples.
 
 ## 4. Results
 
-### 4.1 Sample quality and structure
+### 4.1 Data checking and sample selection
 
-All 30 samples were present in both count and TPM tables, with no missing values, no negative values and no duplicated genes. Sample names matched between the count matrix and the metadata after standardisation. The PCA of variance-stabilised counts (`results/PCA_plot.png`) was used to check the major sources of variation between TEMRA samples.
+The original count and TPM tables each contained 23,368 genes and 30
+samples. The initial checks found no missing values or duplicated gene
+names. The expression data and sample information were matched
+successfully.
 
-![PCA of TEMRA samples](results/PCA_plot.png)
+The main analysis included 12 TEMRA samples: 9 Secondary and 3 Negative.
+After low-count filtering, 12,777 genes remained for differential
+expression analysis.
 
-*Figure 1. PCA of variance-stabilised counts for the 12 TEMRA samples, coloured by group (`plotPCA`, `intgroup = "Group"`).*
+### 4.2 Differential expression results
 
-![TPM distributions](results/tpm_expression_boxplot.png)
+The DESeq2 analysis identified **16 significant genes** with an adjusted
+p-value below 0.05.
 
-*Figure 2. Distribution of log2(TPM + 1) values across all 30 samples, used to check library comparability.*
+-   **14 genes** had higher estimated expression in the Secondary group.
+-   **2 genes** had lower estimated expression in the Secondary group.
 
-### 4.2 Differential expression
+The significant genes are shown below.
 
-Of 12,777 genes tested, **16 were significant** at adjusted p < 0.05 (`results/significant_genes.csv`):
+  Gene          Log2 fold change   Adjusted p-value Direction
+  ----------- ------------------ ------------------ -----------
+  WFS1                     20.97        1.47 × 10⁻⁷ Higher
+  FAH                       8.83        9.63 × 10⁻⁶ Higher
+  CD160                     8.22        3.72 × 10⁻³ Higher
+  CERCAM                    8.30        3.72 × 10⁻³ Higher
+  ZNF619                    5.31        3.72 × 10⁻³ Higher
+  KRT73                     8.29        9.60 × 10⁻³ Higher
+  KIFC3                     8.61        2.24 × 10⁻² Higher
+  LDB1                     -1.81        2.24 × 10⁻² Lower
+  PRRG2                     7.46        3.09 × 10⁻² Higher
+  CLDN15                    8.04        3.24 × 10⁻² Higher
+  DHTKD1                    3.14        3.24 × 10⁻² Higher
+  LOC145474                 8.30        3.24 × 10⁻² Higher
+  ALYREF                   -2.74        3.29 × 10⁻² Lower
+  PIGN                      4.46        3.29 × 10⁻² Higher
+  LRRN3                     7.64        4.03 × 10⁻² Higher
+  ERBB2                     4.03        4.92 × 10⁻² Higher
 
-- 14 higher in Secondary donors
-- 2 lower in Secondary donors (LDB1, ALYREF)
-
-**Table 1. Significant genes, TEMRA Secondary vs Negative (adjusted p < 0.05).** Source: `results/significant_gene_summary.csv`.
-
-| Gene | log2 fold change | Adjusted p | Direction |
-|---|---:|---:|---|
-| WFS1 | 20.97 | 1.47 × 10⁻⁷ | Higher |
-| FAH | 8.83 | 9.63 × 10⁻⁶ | Higher |
-| CD160 | 8.22 | 3.72 × 10⁻³ | Higher |
-| CERCAM | 8.30 | 3.72 × 10⁻³ | Higher |
-| ZNF619 | 5.31 | 3.72 × 10⁻³ | Higher |
-| KRT73 | 8.29 | 9.60 × 10⁻³ | Higher |
-| KIFC3 | 8.61 | 2.24 × 10⁻² | Higher |
-| LDB1 | −1.81 | 2.24 × 10⁻² | Lower |
-| PRRG2 | 7.46 | 3.09 × 10⁻² | Higher |
-| CLDN15 | 8.04 | 3.24 × 10⁻² | Higher |
-| DHTKD1 | 3.14 | 3.24 × 10⁻² | Higher |
-| LOC145474 | 8.30 | 3.24 × 10⁻² | Higher |
-| ALYREF | −2.74 | 3.29 × 10⁻² | Lower |
-| PIGN | 4.46 | 3.29 × 10⁻² | Higher |
-| LRRN3 | 7.64 | 4.03 × 10⁻² | Higher |
-| ERBB2 | 4.03 | 4.92 × 10⁻² | Higher |
-
-The volcano plot (`results/volcano_plot.png`) shows the full set of tested genes with the adjusted p-value threshold marked, and the top-10 plot (`results/top_10_significant_genes.png`) shows the ten most significant genes.
+The volcano plot shows the overall differential expression results. The
+top 10 gene plot displays the genes with the smallest adjusted p-values.
 
 ![Volcano plot](results/volcano_plot.png)
 
-*Figure 3. Volcano plot of differential expression, TEMRA Secondary vs Negative. x-axis: log2 fold change; y-axis: −log10 adjusted p-value. Dashed lines mark the fold-change cut-offs and the adjusted p = 0.05 threshold (`abline`, blue).*
+*Figure 1. Volcano plot showing the differential expression results for
+TEMRA samples.*
 
 ![Top 10 significant genes](results/top_10_significant_genes.png)
 
-*Figure 4. The ten most significant genes ranked by adjusted p-value.*
+*Figure 2. Top 10 significant genes ranked by adjusted p-value.*
 
-Of the 12,777 tested genes, 154 had undefined adjusted p-values (`NA`), which DESeq2 assigns when a gene is removed by independent filtering or contains outlier counts.
+### 4.3 CD160 expression
 
-### 4.3 CD160
+CD160 was one of the significant genes. Its log2 fold change was
+approximately 8.22, with an adjusted p-value of approximately 0.0037.
+The normalised expression values were also examined for each of the 12
+TEMRA samples.
 
-CD160, an immune-checkpoint-associated receptor expressed on cytotoxic CD4+ T cells, was higher in Secondary donors (log2 fold change 8.22, adjusted p = 3.7 × 10⁻³). Per-sample values are in `results/CD160_expression.csv`, and the plot is generated by the script.
+The CD160 values were generally higher in the Secondary group, although
+there was variation between individual samples. Values in the three
+Negative samples were very low or zero. This observation follows the
+direction of the DESeq2 result, but the small control group means that
+it should be interpreted carefully.
+
+The individual sample values are saved in
+`results/CD160_expression.csv`.
+
+### 4.4 Principal Component Analysis
+
+PCA was performed using variance-stabilised count data. The plot uses
+the 500 genes with the highest variance to show the main patterns in the
+samples.
+
+![PCA plot](results/PCA_plot.png)
+
+*Figure 3. PCA plot of the 12 TEMRA samples, coloured by study group.*
+
+PCA is used here as an exploratory visualisation. It helps show whether
+samples have similar or different overall expression patterns. It does
+not by itself show that dengue exposure caused the differences.
 
 ## 5. Discussion
 
-**Main finding.** TEMRA CD4+ T cells from donors with secondary dengue infection differ from dengue-negative controls in 16 genes at adjusted p < 0.05. Most of these (14/16) are higher in the exposed group.
+This project compared gene expression in TEMRA CD4+ T cells between
+donors in the Secondary group and dengue-negative controls. The analysis
+found 16 genes with adjusted p-values below 0.05. Most of these genes
+had higher estimated expression in the Secondary group.
 
-**Biological interpretation.** Several of the top genes are plausibly linked to the immune state of the cell, but the link is speculative and needs functional testing:
+CD160 was one of the significant genes and showed higher estimated
+expression in the Secondary group. The individual sample values showed
+variation, but the overall pattern was consistent with the differential
+expression result.
 
-- **CD160** is an NK-receptor-like molecule that marks highly differentiated, cytotoxic CD4+ T cells. Higher CD160 in secondary donors is consistent with a more differentiated, antigen-experienced TEMRA population after dengue exposure.
-- **ERBB2** and **FAH** are linked to cell-signalling and metabolic pathways, respectively; their relevance to dengue immunity is not established.
-- **LDB1** and **ALYREF** are lower in the exposed group. LDB1 is a transcriptional co-regulator and ALYREF is involved in mRNA export; both could reflect changes in transcriptional programmes of effector cells.
-- **WFS1** has the largest fold change (≈ 2²¹). Such an extreme value is more often a feature of very low baseline expression or a small number of samples than of a true 2-million-fold change, and must be treated with caution until checked against raw counts per sample.
+WFS1 had the largest estimated log2 fold change. However, very large
+fold changes can occur when expression is low in one group or when a
+result is strongly affected by a small number of samples. Therefore,
+this result should be checked carefully and should not be interpreted as
+a direct measure of biological effect size.
 
-**Limitations.**
+These results provide some candidate genes for further study. However,
+this analysis cannot confirm the role of these genes in dengue immunity,
+and it cannot show that previous dengue exposure caused the observed
+expression differences.
 
-1. **Small sample size.** Only 3 negative controls were available for TEMRA cells. Power is low, and the controls may not represent the population as a whole.
-2. **Unpaired analysis.** The model does not account for donor-level effects, even though each donor contributes samples from several subsets. Using a paired or donor-blocked design would be more powerful if the metadata were used as a covariate.
-3. **Extreme fold changes.** Several genes have log2 fold changes above 5, which often arise from low counts. Filtering at ≥ 10 counts in ≥ 3 samples reduces but does not remove this.
-4. **Cohort and population.** All donors are from Sri Lanka, from a single cohort (Cohort 1). Generalisability to other populations, serotypes or disease severity is unknown.
-5. **No clinical variables.** Disease severity, time since infection, serotype and age were not used.
-6. **Bulk sequencing.** Results reflect the average expression of the sorted population, not single cells.
+### 5.1 Limitations
 
-**Real-world implications.** The results point to candidate genes for follow-up in an independent cohort and for functional studies of TEMRA CD4+ T-cell responses after dengue. They do not support any diagnostic or therapeutic use at this stage.
+There are several limitations to this project:
+
+1.  **Small control group:** Only three Negative TEMRA samples were
+    available. This makes the results less stable and limits the
+    strength of the conclusions.
+2.  **One cohort:** The analysis uses Cohort 1 from Sri Lanka, so the
+    findings may not apply to other populations.
+3.  **Limited clinical information:** Clinical details such as dengue
+    serotype, disease severity and time since infection were not
+    included in this analysis.
+4.  **Large fold changes:** Some genes have very large estimated fold
+    changes. These values need further checking and independent
+    validation.
+5.  **Bulk RNA sequencing:** The data represent average gene expression
+    in the sorted cell population rather than expression in individual
+    cells.
 
 ## 6. Conclusion and Future Work
 
-Using public RNA-seq data (GSE97861) and DESeq2, we found 16 genes differentially expressed between TEMRA CD4+ T cells from donors with secondary dengue infection and dengue-negative controls, most of them higher in exposed donors. CD160 is among the significant genes. Future work should:
+This project used public RNA-sequencing data to explore gene expression
+differences in TEMRA CD4+ T cells between donors in the Secondary
+dengue-exposure group and dengue-negative controls. After filtering,
+12,777 genes were analysed, and 16 genes had an adjusted p-value below
+0.05. Fourteen genes showed higher estimated expression and two showed
+lower estimated expression in the Secondary group.
 
-- validate the top genes (CD160, FAH, ERBB2, WFS1) by qPCR or flow cytometry in an independent cohort;
-- repeat the analysis with a donor-blocked design, including all four subsets;
-- check the WFS1 result against per-sample counts and consider a more robust method for extreme fold changes;
-- perform pathway or gene-ontology enrichment (e.g. clusterProfiler) on the full ranked gene list;
-- add clinical covariates when available.
+CD160 was one of the significant genes and showed a similar pattern in
+the individual sample values. However, the small number of control
+samples means that the findings should be treated as preliminary.
+
+Future work could include:
+
+-   Repeating the analysis with a larger group of samples.
+-   Checking the important genes using an independent dataset.
+-   Studying the biological functions of the significant genes in more
+    detail.
+-   Including more clinical information if it becomes available.
 
 ## 7. Reproducibility
 
 ### 7.1 Requirements
 
-- R (≥ 4.1 recommended; exact version to be recorded with `sessionInfo()`)
-- Bioconductor and the **DESeq2** package
-- **ggplot2**
-- RStudio (optional; `Bioinformatics Project.Rproj` opens the project)
+The project was completed using R and RStudio. The main packages are:
 
-Install with:
+-   **DESeq2** -- differential expression analysis and PCA functions.
+-   **ggplot2** -- plots and saving figures.
+-   **Base R** -- data import, cleaning and summaries.
 
-```r
+Install the required packages using:
+
+``` r
 install.packages("ggplot2")
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
 BiocManager::install("DESeq2")
 ```
 
-Record the versions used for your run with:
+To check the R and package versions used on your computer, run:
 
-```r
+``` r
 sessionInfo()
 ```
 
-### 7.2 Data
+### 7.2 Download the data
 
-Download the three files from the GEO supplementary directory for GSE97861 and place them in `data/raw/`:
+Download the following files from the GEO supplementary files for
+GSE97861 and place them inside the `data/raw/` folder:
 
-- https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_Raw_counts_cohort1.tsv.gz
-- https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_TPM_cohort1.tsv.gz
-- https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_series_matrix.txt.gz
+-   [Raw
+    counts](https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_Raw_counts_cohort1.tsv.gz)
+-   [TPM
+    values](https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_TPM_cohort1.tsv.gz)
+-   [GEO series
+    matrix](https://ftp.ncbi.nlm.nih.gov/geo/series/GSE97nnn/GSE97861/suppl/GSE97861_series_matrix.txt.gz)
 
-(The series matrix can also be downloaded from the GEO series page.) The `data/raw/` folder is excluded from git (`.gitignore`), so the data must be downloaded separately.
+The raw data folder is excluded from GitHub using `.gitignore`.
+Therefore, the files need to be downloaded separately before running the
+analysis.
 
-### 7.3 Running the analysis
+### 7.3 Run the project
 
-1. Clone the repository and open `Bioinformatics Project.Rproj` in RStudio, or set the working directory to the project root.
-2. Place the three data files in `data/raw/`.
-3. Run `code/01_inspect_data.R` from top to bottom. It writes all tables to `results/` and all figures to `results/`.
+1.  Download or clone this GitHub repository.
+2.  Open `Bioinformatics Project.Rproj` in RStudio.
+3.  Download the three GEO files and place them in `data/raw/`.
+4.  Open `code/01_inspect_data.R`.
+5.  Run the script from the beginning, one section at a time.
 
-Expected outputs in `results/`:
+The script creates the analysis tables and plots inside the `results/`
+folder.
 
-| File | Content |
-|---|---|
-| `sample_information.csv` | Cleaned sample metadata (30 samples) |
-| `differential_expression_all_genes.csv` | DESeq2 results for all 12,777 tested genes |
-| `significant_genes.csv` | Genes with adjusted p < 0.05 |
-| `significant_gene_summary.csv` | Gene, log2 fold change, adjusted p, direction |
-| `CD160_expression.csv` | Per-sample CD160 expression in TEMRA cells |
-| `tpm_expression_boxplot.png`, `volcano_plot.png`, `top_10_significant_genes.png`, `PCA_plot.png` | Figures |
+### 7.4 Project structure
 
-### 7.4 Repository layout
-
-```text
+``` text
 Bioinformatics Project/
 ├── code/
 │   └── 01_inspect_data.R
 ├── data/
-│   └── raw/            (GEO files, not tracked)
+│   └── raw/ 
 ├── results/
+│   ├── differential_expression_all_genes.csv
+│   ├── significant_genes.csv
+│   ├── significant_gene_summary.csv
+│   ├── CD160_expression.csv
+│   ├── volcano_plot.png
+│   ├── top_10_significant_genes.png
+│   └── PCA_plot.png
 ├── .gitignore
 ├── Bioinformatics Project.Rproj
 └── README.md
@@ -220,9 +388,20 @@ Bioinformatics Project/
 
 ## 8. References
 
-1. Weiskopf D, Tian Y, Babor M, O'Rourke P, Seumois G, Fu Z, Greenbaum J, Peters B, Vijayanand P, Sette A. (2017). Transcriptomic profile of circulating naive, TCM, TEM and TEMRA T cells in donors from Sri Lanka previously exposed to dengue virus. PubMed ID 29133794. *(Verify full title and journal against PubMed before submission.)*
-2. Barrett T, Wilhite SE, Ledoux P, et al. (2013). NCBI GEO: archive for functional genomics data sets—update. *Nucleic Acids Research*, 41(D1), D991–D995.
-3. Love MI, Huber W, Anders S. (2014). Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. *Genome Biology*, 15, 550.
-4. Benjamini Y, Hochberg Y. (1995). Controlling the false discovery rate: a practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289–300.
-5. Wickham H. (2016). *ggplot2: Elegant Graphics for Data Analysis*. Springer.
-6. R Core Team. (2024). *R: A Language and Environment for Statistical Computing*. R Foundation for Statistical Computing, Vienna. https://www.R-project.org/
+1.  Weiskopf, D., et al. (2017). *Transcriptomic profile of circulating
+    naive, TCM, TEM and TEMRA T cells in donors from Sri Lanka
+    previously exposed to dengue virus and healthy controls from Sri
+    Lanka \[Cohort 1\].* NCBI Gene Expression Omnibus, GSE97861.
+    <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE97861>
+2.  Love, M. I., Huber, W., & Anders, S. (2014). Moderated estimation of
+    fold change and dispersion for RNA-seq data with DESeq2. *Genome
+    Biology, 15*, 550. <https://doi.org/10.1186/s13059-014-0550-8>
+3.  Benjamini, Y., & Hochberg, Y. (1995). Controlling the false
+    discovery rate: A practical and powerful approach to multiple
+    testing. *Journal of the Royal Statistical Society: Series B,
+    57*(1), 289--300.
+4.  R Core Team. *R: A Language and Environment for Statistical
+    Computing.* R Foundation for Statistical Computing.
+    <https://www.R-project.org/>
+5.  Wickham, H. (2016). *ggplot2: Elegant Graphics for Data Analysis.*
+    Springer.
